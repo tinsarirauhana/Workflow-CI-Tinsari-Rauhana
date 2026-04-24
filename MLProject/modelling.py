@@ -60,6 +60,7 @@ def run_experiment(X_train, X_test, y_train, y_test):
     # Aktifkan autolog
     mlflow.sklearn.autolog()
 
+    mlflow.end_run()
     print("\n🚀 Memulai MLflow run (autolog) ...")
     with mlflow.start_run(run_name="RandomForest_Autolog"):
         model = RandomForestClassifier(
