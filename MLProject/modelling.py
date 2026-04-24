@@ -54,15 +54,11 @@ def load_data():
 
 def run_experiment(X_train, X_test, y_train, y_test):
     """Melatih model dengan MLflow autolog."""
-    mlflow.set_tracking_uri("mlruns")
-    mlflow.set_experiment(EXPERIMENT_NAME)
-
     # Aktifkan autolog
     mlflow.sklearn.autolog()
 
-    mlflow.end_run()
     print("\n🚀 Memulai MLflow run (autolog) ...")
-    with mlflow.start_run(run_name="RandomForest_Autolog", nested=True):
+    with mlflow.start_run():
         model = RandomForestClassifier(
             n_estimators=100,
             max_depth=None,
