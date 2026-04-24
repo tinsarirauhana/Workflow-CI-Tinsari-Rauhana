@@ -1,0 +1,83 @@
+name: CI - MLflow Model Training
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'MLProject/**'
+  workflow_dispatch:
+
+jobs:
+  train-model:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.7"
+
+      - name: 📦 Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install mlflow==2.19.0 pandas numpy scikit-learn matplotlib seaborn
+
+      - name: 🚀 Run MLflow Project
+        env:
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+          MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
+          MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
+        run: |
+          cd MLProject
+          mlflow run . \
+            -P n_estimators=100 \
+            -P max_depth=10 \
+            -P min_samples_split=2 \
+            -P min_samples_leaf=1 \
+            --env-manager=local
+
+      - name: 📁 List MLflow artifacts
+        run: |
+          ls -la mlruns/ || echo "mlruns dir not found"
+
+      - name: 📤 Upload MLflow artifacts to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlflow-artifacts
+          path: |
+            MLProject/mlruns/
+            MLProject/mlflow_artifacts/
+          retention-days: 30
+
+      - name: 💾 Commit artifacts back to repository
+        run: |
+          git config --global user.name  "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add MLProject/mlruns/ MLProject/mlflow_artifacts/ || true
+          git diff --cached --quiet || git commit -m "chore: update mlflow artifacts [skip ci]"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🐳 Build Docker Image with MLflow
+        run: |
+          cd MLProject
+          mlflow models build-docker \
+            -m "mlruns/0/$(ls mlruns/0/ | grep -v meta | head -1)/artifacts/model" \
+            -n "heart-disease-model:latest" \
+            --enable-mlserver
+        continue-on-error: true
+
+      - name: 🐳 Push Docker Image to Docker Hub
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+          docker tag heart-disease-model:latest $DOCKER_USERNAME/heart-disease-model:latest
+          docker push $DOCKER_USERNAME/heart-disease-model:latest
+          echo "Docker Hub URL: https://hub.docker.com/r/$DOCKER_USERNAME/heart-disease-model"
+        continue-on-error: true
