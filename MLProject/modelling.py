@@ -54,7 +54,7 @@ def load_data():
 
 def run_experiment(X_train, X_test, y_train, y_test):
     """Melatih model dengan MLflow autolog."""
-    mlflow.set_tracking_uri("http://127.0.0.1:5000")
+    mlflow.set_tracking_uri("mlruns")
     mlflow.set_experiment(EXPERIMENT_NAME)
 
     # Aktifkan autolog
